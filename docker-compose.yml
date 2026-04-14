@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: polops_postgres
+    environment:
+      POSTGRES_DB: polops_db
+      POSTGRES_USER: polops_user
+      POSTGRES_PASSWORD: polops_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/src/config/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - polops_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: polops_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - polops_network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: polops_backend
+    ports:
+      - "8001:8001"
+    environment:
+      NODE_ENV: production
+      PORT: 8001
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: polops_db
+      DB_USER: polops_user
+      DB_PASSWORD: polops_pass
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: your_super_secret_jwt_key_here
+      JWT_EXPIRE: 24h
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - polops_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: polops_frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - polops_network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  polops_network:
+    driver: bridge
